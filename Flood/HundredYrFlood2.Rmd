@@ -1,0 +1,141 @@
+---
+title: "100-Year Flood Part 2"
+author: "Maazin Ansari"
+date: "1/3/2018"
+output: html_document
+---
+
+```{r options, echo = FALSE}
+library(knitr)
+library(kableExtra)
+inline_hook <- function(x) {
+  if (is.numeric(x)) {
+    format(x, digits = 5)
+  } else x
+}
+knitr::knit_hooks$set(inline = inline_hook)
+```
+
+```{r get-prev-data, output = 'hide'}
+# Here I try to run HundredYrFlood1.Rmd so I can use the objects and variables in this .Rmd
+# I use one R script in both parts.
+source("HundredYrFlood.R")
+```
+
+
+In Part 1, I estimated $v$, the value of the 100-year flood for Blackstone River in Woonsocket, RI. The result was `r v` $\text{ft}^3/\text{s}$. What does that mean, and is it accurate? 
+
+# Background
+
+The following code is based on [this series of  posts](https://tonyladson.wordpress.com/2015/06/07/the-100-year-flood/) by Tony Ladson. These posts are really easy to follow if you don't have much experience with hydrology, probability, or R.
+
+The value of the 100-year flood was calculated to be `r v`. This can be worded in different ways:
+
+- In a single year, there is a 1% chance the discharge of the largest flood will exceed `r v`.
+- In a 100-year period, the discharge is *expected* to be (or exceed) `r v` in one of the years.
+- A flood with a discharge of at least `r v` $\text{ft}^3/\text{s}$ is *expected* to occur once in a hundred years.
+
+It's not accurate to say the 100-year flood *will* occur once every 100 years. The important word is *expected*. In a 100-year period, it's possible for zero 100-year floods to occur. It's also possible 37 100-year floods occur.
+
+# Number of 100-year floods in 37 years
+
+```{r }
+plot(floods, type = "h", lwd = 2)
+title("Largest floods
+      of the Blackstone River
+      1929-1965", cex = 0.75)
+abline(h = v, col = "blue")
+```
+
+
+Going back to our original data, the 100-year flood was exceeded once in the 37 year period. How likely is it to have exactly one such flood in a 37-year period? We aren't considering the volume of the flood. That is, we aren't asking how likely it is to have a flood with a discharge of `r max(floods[["discharge"]])` (the maximum), or what discharge is expected. We are only concerned with how many are expected to occur in a random 37-year period.
+
+## Expectation
+
+The number of 100-year floods $X$ in a $n$-year period follows a binomial distribution:
+
+$$
+P(X=k)= {n \choose k}p^k(1-p)^{n-k}
+$$
+
+Here $n=37$ (number of years) and $p=0.01$ (Defined in Part 1 as $P(D \geq v)$). The number of floods (or number of years where the 100-year flood occurs) $k$ can be any number from 0 to 37, as the flood can occur 0, 1, 2,..., or 37 times in a 37-year period.
+
+Since $n$ is large (37) and $p$ is small (0.01) we can approximate the binomial distribution with a Poisson distribution.
+
+$$
+P(X=k) = \frac{e^{-\lambda}\lambda^k}{k!}
+$$
+
+Here the parameter $\lambda$ is approximated with $np = 37\times0.01=0.37$.
+With this approximation, $k$ can be larger than 37, but the probabilities will be so small they're essentially 0.
+
+```{r}
+# P(X = 38)
+dpois(x = 38, lambda = 1)
+```
+
+## Simulation
+
+We can estimate the expected number of 100-year floods by simulating 37-year periods 1000 times.
+
+```{r}
+N = 1000
+# Binomial
+bFloods = rbinom(n = N, size = 37, prob = 0.01)
+# Poisson
+pFloods = rpois(n = N, lambda = 37*0.01)
+```
+
+The following graph compares the expected probabilities and the simulated probabilities.
+
+```{r, echo = FALSE, warning = FALSE}
+df_binom = rbind(table(bFloods)/N,
+                 dbinom(0:max(bFloods), size = 37, prob = 0.01))
+df_pois = rbind(table(pFloods)/N,
+                dpois(0:max(pFloods), lambda = 37*0.01))
+
+col_sim = rgb(224,236,244, maxColorValue = 255)
+col_exp = rgb(254,224,210, maxColorValue = 255)
+
+par(mfrow = c(1,2))
+barplot(df_binom,
+        main = "Binomial",
+        ylim = c(0, 1),
+        beside = TRUE,
+        legend = c("Simulated", "Expected"), 
+        xlab = "Number of 100 year floods",
+        col = c(col_sim, col_exp),
+        legend.text = FALSE)
+barplot(df_pois,
+        main = "Poisson",
+        ylim = c(0, 1),
+        beside = TRUE,
+        legend = c("Simulated", "Expected"), 
+        xlab = "Number of 100 year floods",
+        col = c(col_sim, col_exp))
+```
+
+In a 37-year period, it's much more likely to have zero 100-year floods than to have one. Still, the probability of exactly one is still high, about 26%.
+
+```{r}
+# Binomial
+p_1_binomial = dbinom(x = 1, size = 37, prob = 0.01)
+# Poisson
+p_1_poisson = dpois(x = 1, lambda = 37*0.01)
+```
+
+Binomial         | Poisson
+-----------------|----------------
+`r p_1_binomial` | `r p_1_poisson`
+
+
+It's possible for a 100-year flood to occur two years in a row. In fact, a one-year gap between 100-year floods is more likely than a 100-year gap.
+
+# References
+
+Ladson, Tony. "The 100 year flood." *tonyladson | Hydrology, Natural Resources and R*. June 7, 2015. https://tonyladson.wordpress.com/2015/06/07/the-100-year-flood/.
+
+https://water.usgs.gov/edu/100yearflood.html
+
+https://water.usgs.gov/edu/100yearflood-basic.html
+

@@ -1,0 +1,139 @@
+---
+title: "100-Year Flood Part 1"
+author: "Maazin Ansari"
+date: 2017-01-07
+output:
+  html_document: default
+---
+```{r options, echo = FALSE, message = FALSE, warning = FALSE}
+library(knitr)
+library(kableExtra)
+library(magrittr)
+inline_hook <- function(x) {
+  if (is.numeric(x)) {
+    format(x, digits = 5)
+  } else x
+}
+
+opts_chunk$set(cache = FALSE)
+knit_hooks$set(inline = inline_hook)
+read_chunk("HundredYrFlood.R")
+source("HundredYrFlood.R")
+```
+
+In this two-part post, I play around with some data in R to show the statistics behind the 100-year flood. This is mostly me following along with posts from other blogs to get familiar with R, RMarkdown, and blogging. 
+
+In this first part, I'll show how the hundred year flood is calculated from data. In Part 2, I'll go into more detail on the 100-year flood, do some simulations, and verify our solution in Part 1.
+
+# Parameter Estimation
+
+The data I use here comes from Problem 6 in 
+
+Ross, Sheldon M. “Chapter 7: Parameter Estimation.” *Introduction to Probability and Statistics for Engineers and Scientists*, 5th ed., Elsevier, AP, 2014, pp. 285–286.
+
+> River floods are often measured by their discharges ($\text{ft}^3/\text{s}$)
+The value $v$ is said to be the value of a 100-year flood if $P(D \geq v) = 0.01$
+where $D$ is the discharge of the largest flood in a randomly selected year.  
+
+> The table below gives the flood discharges of the largest floods of the Blackstone River in Woonsocket, RI, in each year from 1929 to 1965.  
+
+> Assuming that these discharges follow a log-normal distribution, estimate the value of a 100-year flood.
+
+```{r flood-table, fig.width = 0.5, echo = FALSE, message = FALSE, warning = FALSE}
+floods = read.csv("HundredYrFlood.csv")
+kable(floods, row.names = FALSE, escape = FALSE, align = "c") %>%
+  kable_styling(bootstrap_options = "striped", full_width = FALSE)
+```
+
+The plot below displays the above table as a graph. The average discharge of the largest flood during this period is around 6,000 $\text{ft}^3/\text{s}$. There was an unusually large flood in 1955, with well over 30,000 $\text{ft}^3/\text{s}$ of discharge.
+
+```{r time-plot, fig.align = "center"}
+plot(floods, type = "h", lwd = 2,
+     main = "Largest floods of the Blackstone River")
+```
+
+## Distribution of discharges
+
+The problem tells us to assume discharge follows a log-normal distribution. So, $D \sim \text{Lognormal}(\mu, \sigma)$. Two notable properties of the log-normal distribution are that it takes positive values and it is positively skewed. Looking at the histogram of discharges, we can see both are true: discharges cannot be less than 0 and high-discharge floods are much less frequent than low-discharge floods.
+
+```{r hist-1, fig.align = "center"}
+hist(floods[["discharge"]], nclass = 25, freq = TRUE, xlab = "discharge", main = "")
+```
+
+The next step is to determine which log-normal distribution this data comes from. In other words, what are the parameters for this distribution.
+
+## Log-normal distribution
+
+$$f(x) = \frac{1}{x\sigma\sqrt{2π}} \exp\Big(-\frac{(\ln x - \mu)^2}{2 \sigma^2}\Big)$$
+
+The log-normal distribution is similar to the normal distribution in that it has two parameters, $\mu$ and $\sigma$. We need to estimate both.
+
+The following sections show how to estimate the parameters for the log-normal distribution, using two different methods.
+
+## Maximum Likelihood Estimates
+
+$$
+\hat{\mu}=\frac{\sum \ln x_i}{n} = \overline{\ln x_i}
+$$
+
+```{r, mu-hat}
+```
+
+$$
+\hat{\sigma}^2 = \frac{\sum_i^n (\ln x_i - \hat{\mu})^2}{n}
+$$
+
+```{r, sigma-hat}
+```
+
+## Method of Moments Estimates
+
+$$
+\tilde{\sigma}^2= \ln{\sum_{i=1}^nx_i^2} - 2\ln{\sum_{i=1}^nx_i}+\ln(n)
+$$
+
+```{r, sigma-tilde}
+```
+
+$$
+\tilde{\mu}= {\ln \sum_{i=1}^n x_i}-\ln(n)-\frac{\tilde{\sigma}^2}{2}
+$$
+
+```{r, mu-tilde}
+```
+
+## Estimated distributions
+
+Since we now have parameters, we have a distribution. We can plot the probability density functions with the histogram to see how well it fits.
+
+```{r hist-2}
+hist(floods[["discharge"]], nclass = 25, freq = FALSE, xlab = "discharge", main = "")
+lnorm_plot_v(mu = mu_hat, sigma = sigma_hat, col = "red", add = TRUE)
+lnorm_plot_v(mu = mu_tilde, sigma = sigma_tilde, col = "blue", add = TRUE)
+```
+
+Now we can determine the value $v$ for which $P(D \geq v) = 0.01$
+
+$P(D \geq v) = 0.01$ and $P(D <  v) = 0.99$
+
+```{r, v-mle}
+```
+
+```{r, v-mom}
+```
+
+So, the value of the hundred year flood is `r trunc(v_mle)` $\text{ft}^3/\text{s}$ according to maximum likelihood estimation and `r trunc(v_mom)` $\text{ft}^3/\text{s}$ accordint to method of moments estimation. From the data, we see that in only one year, 1955, was the value exceeded.
+
+```{r lnorm-plots, echo = FALSE, fig.align="center"}
+par(mfrow = c(1,2))
+time_plot_v(floods[["discharge"]], v = c(v_mle, v_mom), col = c("red", "blue"))
+legend("topleft", legend = c("MLE", "MOM"), lty = 1, col = c("red", "blue"), bty = "n")
+lnorm_plot_v(mu_hat, sigma_hat, v_mle, "red")
+lnorm_plot_v(mu_hat, sigma_tilde, v_mom, "blue", add = TRUE)
+```
+
+# References
+
+Ginos, Brenda Faith, "Parameter Estimation for the Lognormal Distribution" (2009). *All Theses and Dissertations*. 1928. http://scholarsarchive.byu.edu/etd/1928
+
+Ross, Sheldon M. “Chapter 7: Parameter Estimation.” *Introduction to Probability and Statistics for Engineers and Scientists*, 5th ed., Elsevier, AP, 2014, pp. 285–286.
