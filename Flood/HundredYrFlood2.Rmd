@@ -1,7 +1,7 @@
 ---
 title: "100-Year Flood Part 2"
 author: "Maazin Ansari"
-date: "1/3/2018"
+date: 2018-01-07
 output: html_document
 ---
 
@@ -16,39 +16,39 @@ inline_hook <- function(x) {
 knitr::knit_hooks$set(inline = inline_hook)
 ```
 
-```{r get-prev-data, output = 'hide'}
+```{r get-prev-data, output = 'hide, echo = FALSE'}
 # Here I try to run HundredYrFlood1.Rmd so I can use the objects and variables in this .Rmd
 # I use one R script in both parts.
 source("HundredYrFlood.R")
 ```
 
 
-In Part 1, I estimated $v$, the value of the 100-year flood for Blackstone River in Woonsocket, RI. The result was `r v` $\text{ft}^3/\text{s}$. What does that mean, and is it accurate? 
+In Part 1, I estimated $v$, the value of the 100-year flood for Blackstone River in Woonsocket, RI. The result using maximum likelihood estimation was `r v_mle` $\text{ft}^3/\text{s}$. What does that mean, and is it accurate? 
 
 # Background
 
-The following code is based on [this series of  posts](https://tonyladson.wordpress.com/2015/06/07/the-100-year-flood/) by Tony Ladson. These posts are really easy to follow if you don't have much experience with hydrology, probability, or R.
+This article is based on [this series of  posts](https://tonyladson.wordpress.com/2015/06/07/the-100-year-flood/) by Tony Ladson. They are really easy to follow if you don't have much experience with hydrology, probability, or R.
 
-The value of the 100-year flood was calculated to be `r v`. This can be worded in different ways:
+The value of the 100-year flood was calculated to be `r v_mle`. This can be worded in different ways:
 
-- In a single year, there is a 1% chance the discharge of the largest flood will exceed `r v`.
-- In a 100-year period, the discharge is *expected* to be (or exceed) `r v` in one of the years.
-- A flood with a discharge of at least `r v` $\text{ft}^3/\text{s}$ is *expected* to occur once in a hundred years.
+- In a single year, there is a 1% chance the discharge of the largest flood will exceed `r v_mle`.
+- In a 100-year period, the discharge is *expected* to be (or exceed) `r v_mle` in one of the years.
+- A flood with a discharge of at least `r v_mle` $\text{ft}^3/\text{s}$ is *expected* to occur once in a hundred years.
 
 It's not accurate to say the 100-year flood *will* occur once every 100 years. The important word is *expected*. In a 100-year period, it's possible for zero 100-year floods to occur. It's also possible 37 100-year floods occur.
 
 # Number of 100-year floods in 37 years
 
-```{r }
+```{r time-plot2}
 plot(floods, type = "h", lwd = 2)
 title("Largest floods
       of the Blackstone River
       1929-1965", cex = 0.75)
-abline(h = v, col = "blue")
+abline(h = v_mle, col = "red")
 ```
 
 
-Going back to our original data, the 100-year flood was exceeded once in the 37 year period. How likely is it to have exactly one such flood in a 37-year period? We aren't considering the volume of the flood. That is, we aren't asking how likely it is to have a flood with a discharge of `r max(floods[["discharge"]])` (the maximum), or what discharge is expected. We are only concerned with how many are expected to occur in a random 37-year period.
+Looking at our original data, the 100-year flood was exceeded once in the 37-year period. How likely is it to have exactly one such flood in a 37-year period? We aren't considering the volume of the flood. That is, we aren't asking how likely it is to have a flood with a discharge of `r max(floods[["discharge"]])` (the maximum), or what discharge is expected. We are only concerned with how many are expected to occur in a random 37-year period.
 
 ## Expectation
 
@@ -76,46 +76,70 @@ dpois(x = 38, lambda = 1)
 
 ## Simulation
 
-We can estimate the expected number of 100-year floods by simulating 37-year periods 1000 times.
+Knowing the log-normal distribution, we can simulate 37 years of flooding to see if it matches our result and what we expect.
+
+### Count simulation
+
+We can simulate the number of 100-year floods occuring in a 37-year period by simulating binomial and Poisson processes.
 
 ```{r}
-N = 1000
 # Binomial
 bFloods = rbinom(n = N, size = 37, prob = 0.01)
 # Poisson
 pFloods = rpois(n = N, lambda = 37*0.01)
 ```
 
-The following graph compares the expected probabilities and the simulated probabilities.
+### Log-normal simulation
+
+Another way to simulate the number of 100-year floods is to simulate 37-year periods and count how many floods exceed `r v_mle`. This involves an extra step compared to the previous method, and I'm only doing it for demonstration.
+
+Let's start with a matrix to store simulations of flood discharges. Each column is a simulation (1000 total) and each row will represent a year of flooding (37 total). 
+
+```{r}
+N = 1000
+m = replicate(n = N, expr = rlnorm(n = 37, meanlog = mu_hat, sdlog = sigma_hat)) %>% as.matrix
+```
+
+Now, let's count how many 100-year floods occur in the 1000 37-year periods.
+
+```{r}
+sim_counts = apply(X = m, MARGIN = 2, FUN = function(x) sum(x > v_mle))
+sim_table = table(sim_counts)/N
+```
+
+The following graph compares the expected probabilities and the simulated probabilities. The red and blue bars show the expected and simulated counts, respectively. The yellow bars show the counts using simulated floods. 
 
 ```{r, echo = FALSE, warning = FALSE}
 df_binom = rbind(table(bFloods)/N,
-                 dbinom(0:max(bFloods), size = 37, prob = 0.01))
+                 dbinom(0:max(bFloods), size = 37, prob = 0.01),
+                 sim_table)
 df_pois = rbind(table(pFloods)/N,
-                dpois(0:max(pFloods), lambda = 37*0.01))
+                dpois(0:max(pFloods), lambda = 37*0.01),
+                sim_table)
 
-col_sim = rgb(224,236,244, maxColorValue = 255)
 col_exp = rgb(254,224,210, maxColorValue = 255)
+col_simc = rgb(224,236,244, maxColorValue = 255)
+col_siml = rgb(255,247,188, maxColorValue = 255)
 
 par(mfrow = c(1,2))
 barplot(df_binom,
         main = "Binomial",
         ylim = c(0, 1),
         beside = TRUE,
-        legend = c("Simulated", "Expected"), 
         xlab = "Number of 100 year floods",
-        col = c(col_sim, col_exp),
+        col = c(col_exp, col_simc, col_siml),
         legend.text = FALSE)
 barplot(df_pois,
         main = "Poisson",
         ylim = c(0, 1),
         beside = TRUE,
-        legend = c("Simulated", "Expected"), 
+        legend = c("Expected", "Simulated Count", "Simulated Floods"),
+        bty = "n",
         xlab = "Number of 100 year floods",
-        col = c(col_sim, col_exp))
+        col = c(col_exp, col_simc, col_siml))
 ```
 
-In a 37-year period, it's much more likely to have zero 100-year floods than to have one. Still, the probability of exactly one is still high, about 26%.
+In a 37-year period, it's much more likely to have zero 100-year floods than to have one. Still, the probability of exactly one is high, about 26%.
 
 ```{r}
 # Binomial
@@ -124,12 +148,11 @@ p_1_binomial = dbinom(x = 1, size = 37, prob = 0.01)
 p_1_poisson = dpois(x = 1, lambda = 37*0.01)
 ```
 
-Binomial         | Poisson
------------------|----------------
-`r p_1_binomial` | `r p_1_poisson`
+Binomial         | Poisson         | Flood simulation
+-----------------|-----------------|---------------------
+`r p_1_binomial` | `r p_1_poisson` | `r sim_table[["1"]]`
 
 
-It's possible for a 100-year flood to occur two years in a row. In fact, a one-year gap between 100-year floods is more likely than a 100-year gap.
 
 # References
 

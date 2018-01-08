@@ -32,13 +32,13 @@ mu_tilde = (floods[["discharge"]] %>% sum %>% log) -
             log(nrow(floods)) - 
             (sigma_tilde)^2 / 2
 
-# P(D >= v) = 0.01
 ## ---- v-mle
 v_mle = qlnorm(p = 0.99, meanlog = mu_hat, sdlog = sigma_hat)
+
 ## ---- v-mom
 v_mom = qlnorm(p = 0.99, meanlog = mu_tilde, sdlog = sigma_tilde)
 
-# Plot functions ----
+## ---- plot-functions
 
 ## ---- time-plot-v
 time_plot_v = function(data, v = NULL, col = 1, title = "") {
