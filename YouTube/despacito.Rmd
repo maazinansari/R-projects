@@ -1,0 +1,35 @@
+---
+title: "One Year of Despacito"
+author: "Maazin Ansari"
+date: 
+output: 
+  html_document: 
+    df_print: tibble
+---
+
+I'm not sick of this song yet.
+
+# Getting the data
+
+First go to the video page on YouTube. You should be using this old format. For some reason, YouTube removed the video statistics in their new layout. Bummer. Even if you are using the old format, not all videos have this feature enabled. I'm not sure how it's determined. I think the creators must enable it. Most music videos, including this one, have them enabled, so we don't have much to worry about. Music videos are also the genre that gets the most views.
+
+Once you're at the page and you have opened the video statistics, right-click somewhere around the chart and inspect element. You won't be able to right-click the actual graphic itself, but the axis labels should work. Look for `stats-chart-gviz`. Click the arrows until you find the `<table>` tag. Right-click and select Copy>Copy element and paste it into a text editor. Save it as an html file and read it with `readHTMLTable`.
+
+# Cleaning the data
+
+# Analysis
+
+Notable characteristics:
+
+- Weekly spikes every Friday
+- Drop during Lent
+    - Any drop in views during Ramadan would be overshadowed by Bieber and summer
+- Spike after Bieber version
+- Peak during summer
+- Spike at 1, 2, 3 Billion
+    - Race to 3 Billion
+    - Influential tweets (YouTube, Fonsi, DY, Bieber)
+    - Influential covers/parodies
+- Spikes after awards
+- Correlation with Google Trends
+    - Latin America vs. Rest of World
